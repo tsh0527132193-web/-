@@ -1,8 +1,6 @@
 const db = require('../db');
 
-// קבלת כל הספרים (עם סינון לפי שם ו-pagination)
 const getAllBooks = (req, res) => {
-    // limit = 10 (ספרים בדף), page = 1 (עמוד ראשון)
     let { limit = 10, page = 1, name } = req.query;
 
     limit = parseInt(limit);
@@ -10,19 +8,16 @@ const getAllBooks = (req, res) => {
 
     let filteredBooks = db.books;
 
-    // סינון לפי שם אם הועבר פרמטר חיפוש
     if (name) {
         filteredBooks = filteredBooks.filter(book => book.name.includes(name));
     }
 
-    // חישוב האינדקסים עבור ה-pagination (חיתוך המערך)
     const startIndex = (page - 1) * limit;
     const endIndex = page * limit;
 
     res.json(filteredBooks.slice(startIndex, endIndex));
 };
 
-// קבלת ספר ספציפי
 const getBookByCode = (req, res) => {
     const code = parseInt(req.params.code);
     const book = db.books.find(b => b.code === code);
@@ -34,7 +29,6 @@ const getBookByCode = (req, res) => {
     }
 };
 
-// עדכון ספר
 const updateBook = (req, res) => {
     const code = parseInt(req.params.code);
     const updateData = req.body;
@@ -45,7 +39,6 @@ const updateBook = (req, res) => {
         return res.status(404).json({ message: "ספר לא נמצא" });
     }
 
-    // מעדכנים את הספר תוך שמירה על שדות ההשאלה המקוריים שלא יידרסו
     db.books[bookIndex] = {
         ...db.books[bookIndex],
         ...updateData,
@@ -56,7 +49,6 @@ const updateBook = (req, res) => {
     res.json(db.books[bookIndex]);
 };
 
-// ביצוע השאלה - מעדכן גם את המשתמש
 const borrowBook = (req, res) => {
     const code = parseInt(req.params.code);
     const { userCode } = req.body;
@@ -81,13 +73,11 @@ const borrowBook = (req, res) => {
         customer_code: userCode
     });
 
-    // הוספת קוד הספר למערך הספרים המושאלים של המשתמש
     user.borrowed_books.push(book.code);
 
     res.json({ book, user });
 };
 
-// ביצוע החזרה - מעדכן גם את המשתמש
 const returnBook = (req, res) => {
     const code = parseInt(req.params.code);
 
@@ -102,7 +92,6 @@ const returnBook = (req, res) => {
 
     book.is_borrowed = false;
 
-    // הסרת קוד הספר ממערך הספרים המושאלים של המשתמש שמחזיק בו
     const user = db.users.find(u => u.borrowed_books.includes(code));
     if (user) {
         user.borrowed_books = user.borrowed_books.filter(c => c !== code);
@@ -111,7 +100,6 @@ const returnBook = (req, res) => {
     res.json({ book, user });
 };
 
-// מחיקת ספר לפי קוד
 const deleteBook = (req, res) => {
     const code = parseInt(req.params.code);
     const bookIndex = db.books.findIndex(b => b.code === code);
