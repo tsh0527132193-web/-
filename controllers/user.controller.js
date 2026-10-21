@@ -1,6 +1,5 @@
 const db = require('../db');
 
-// הרשמה
 const signUp = (req, res) => {
     const { username, email, password } = req.body;
 
@@ -12,7 +11,6 @@ const signUp = (req, res) => {
         return res.status(409).json({ message: "משתמש עם אימייל זה כבר קיים" });
     }
 
-    // קוד חדש = הקוד הגבוה ביותר + 1
     const code = db.users.length ? Math.max(...db.users.map(u => u.code)) + 1 : 1;
     const newUser = { code, username, email, password, borrowed_books: [] };
     db.users.push(newUser);
@@ -20,7 +18,6 @@ const signUp = (req, res) => {
     res.status(201).json(newUser);
 };
 
-// התחברות
 const signIn = (req, res) => {
     const { email, password } = req.body;
 
@@ -33,7 +30,6 @@ const signIn = (req, res) => {
     res.json(user);
 };
 
-// הצגת כל המשתמשים
 const getAllUsers = (req, res) => {
     res.json(db.users);
 };
