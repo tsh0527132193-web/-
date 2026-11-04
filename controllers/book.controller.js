@@ -1,6 +1,6 @@
 const db = require('../db');
 
-const getAllBooks = (req, res) => {
+const getAllBooks = (req, res, next) => {
     let { limit = 10, page = 1, name } = req.query;
 
     limit = parseInt(limit);
@@ -18,25 +18,25 @@ const getAllBooks = (req, res) => {
     res.json(filteredBooks.slice(startIndex, endIndex));
 };
 
-const getBookByCode = (req, res) => {
+const getBookByCode = (req, res, next) => {
     const code = parseInt(req.params.code);
     const book = db.books.find(b => b.code === code);
 
     if (book) {
         res.json(book);
     } else {
-        res.status(404).json({ message: "ספר לא נמצא" });
+        next({ status: 404, message: "ספר לא נמצא" });
     }
 };
 
-const updateBook = (req, res) => {
+const updateBook = (req, res, next) => {
     const code = parseInt(req.params.code);
     const updateData = req.body;
 
     const bookIndex = db.books.findIndex(b => b.code === code);
 
     if (bookIndex === -1) {
-        return res.status(404).json({ message: "ספר לא נמצא" });
+        return next({ status: 404, message: "ספר לא נמצא" });
     }
 
     db.books[bookIndex] = {
@@ -49,22 +49,22 @@ const updateBook = (req, res) => {
     res.json(db.books[bookIndex]);
 };
 
-const borrowBook = (req, res) => {
+const borrowBook = (req, res, next) => {
     const code = parseInt(req.params.code);
     const { userCode } = req.body;
 
     const book = db.books.find(b => b.code === code);
     if (!book) {
-        return res.status(404).json({ message: "ספר לא נמצא" });
+        return next({ status: 404, message: "ספר לא נמצא" });
     }
 
     const user = db.users.find(u => u.code === userCode);
     if (!user) {
-        return res.status(404).json({ message: "משתמש לא נמצא" });
+        return next({ status: 404, message: "משתמש לא נמצא" });
     }
 
     if (book.is_borrowed) {
-        return res.status(400).json({ message: "הספר כבר מושאל, לא ניתן לבצע השאלה" });
+        return next({ status: 400, message: "הספר כבר מושאל, לא ניתן לבצע השאלה" });
     }
 
     book.is_borrowed = true;
@@ -78,16 +78,16 @@ const borrowBook = (req, res) => {
     res.json({ book, user });
 };
 
-const returnBook = (req, res) => {
+const returnBook = (req, res, next) => {
     const code = parseInt(req.params.code);
 
     const book = db.books.find(b => b.code === code);
     if (!book) {
-        return res.status(404).json({ message: "ספר לא נמצא" });
+        return next({ status: 404, message: "ספר לא נמצא" });
     }
 
     if (!book.is_borrowed) {
-        return res.status(400).json({ message: "הספר אינו מושאל" });
+        return next({ status: 400, message: "הספר אינו מושאל" });
     }
 
     book.is_borrowed = false;
@@ -100,12 +100,12 @@ const returnBook = (req, res) => {
     res.json({ book, user });
 };
 
-const deleteBook = (req, res) => {
+const deleteBook = (req, res, next) => {
     const code = parseInt(req.params.code);
     const bookIndex = db.books.findIndex(b => b.code === code);
 
     if (bookIndex === -1) {
-        return res.status(404).json({ message: "ספר לא נמצא" });
+        return next({ status: 404, message: "ספר לא נמצא" });
     }
 
     db.books.splice(bookIndex, 1);

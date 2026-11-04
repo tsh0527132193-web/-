@@ -1,14 +1,14 @@
 const db = require('../db');
 
-const signUp = (req, res) => {
+const signUp = (req, res, next) => {
     const { username, email, password } = req.body;
 
     if (!username || !email || !password) {
-        return res.status(400).json({ message: "חובה למלא שם משתמש, אימייל וסיסמה" });
+        return next({ status: 400, message: "חובה למלא שם משתמש, אימייל וסיסמה" });
     }
 
     if (db.users.some(u => u.email === email)) {
-        return res.status(409).json({ message: "משתמש עם אימייל זה כבר קיים" });
+        return next({ status: 409, message: "משתמש עם אימייל זה כבר קיים" });
     }
 
     const code = db.users.length ? Math.max(...db.users.map(u => u.code)) + 1 : 1;
@@ -18,19 +18,19 @@ const signUp = (req, res) => {
     res.status(201).json(newUser);
 };
 
-const signIn = (req, res) => {
+const signIn = (req, res, next) => {
     const { email, password } = req.body;
 
     const user = db.users.find(u => u.email === email && u.password === password);
 
     if (!user) {
-        return res.status(401).json({ message: "אימייל או סיסמה שגויים" });
+        return next({ status: 401, message: "אימייל או סיסמה שגויים" });
     }
 
     res.json(user);
 };
 
-const getAllUsers = (req, res) => {
+const getAllUsers = (req, res, next) => {
     res.json(db.users);
 };
 
