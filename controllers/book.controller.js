@@ -1,116 +1,126 @@
+const Book = require('../models/book.model');
 const db = require('../db');
 
-const getAllBooks = (req, res, next) => {
-    let { limit = 10, page = 1, name } = req.query;
+const getAllBooks = async (req, res, next) => {
+    try {
+        let { limit = 10, page = 1, name } = req.query;
+        limit = parseInt(limit);
+        page = parseInt(page);
 
-    limit = parseInt(limit);
-    page = parseInt(page);
+        const filter = name ? { name: { $regex: name } } : {};
+        const books = await Book.find(filter).skip((page - 1) * limit).limit(limit);
 
-    let filteredBooks = db.books;
-
-    if (name) {
-        filteredBooks = filteredBooks.filter(book => book.name.includes(name));
+        res.json(books);
+    } catch (err) {
+        next({ status: 500, message: err.message });
     }
-
-    const startIndex = (page - 1) * limit;
-    const endIndex = page * limit;
-
-    res.json(filteredBooks.slice(startIndex, endIndex));
 };
 
-const getBookByCode = (req, res, next) => {
-    const code = parseInt(req.params.code);
-    const book = db.books.find(b => b.code === code);
-
-    if (book) {
+const getBookById = async (req, res, next) => {
+    try {
+        const book = await Book.findById(req.params.id);
+        if (!book) {
+            return next({ status: 404, message: "ספר לא נמצא" });
+        }
         res.json(book);
-    } else {
-        next({ status: 404, message: "ספר לא נמצא" });
+    } catch (err) {
+        next({ status: 400, message: "מזהה ספר לא תקין" });
     }
 };
 
-const updateBook = (req, res, next) => {
-    const code = parseInt(req.params.code);
-    const updateData = req.body;
+const updateBook = async (req, res, next) => {
+    try {
+        const { is_borrowed, borrowing_info, ...updateData } = req.body;
 
-    const bookIndex = db.books.findIndex(b => b.code === code);
+        const book = await Book.findByIdAndUpdate(req.params.id, updateData, {
+            returnDocument: 'after',
+            runValidators: true
+        });
 
-    if (bookIndex === -1) {
-        return next({ status: 404, message: "ספר לא נמצא" });
+        if (!book) {
+            return next({ status: 404, message: "ספר לא נמצא" });
+        }
+        res.json(book);
+    } catch (err) {
+        next({ status: 400, message: err.message });
     }
-
-    db.books[bookIndex] = {
-        ...db.books[bookIndex],
-        ...updateData,
-        is_borrowed: db.books[bookIndex].is_borrowed,
-        borrowing_info: db.books[bookIndex].borrowing_info
-    };
-
-    res.json(db.books[bookIndex]);
 };
 
-const borrowBook = (req, res, next) => {
-    const code = parseInt(req.params.code);
-    const { userCode } = req.body;
+const borrowBook = async (req, res, next) => {
+    try {
+        const { userCode } = req.body;
 
-    const book = db.books.find(b => b.code === code);
-    if (!book) {
-        return next({ status: 404, message: "ספר לא נמצא" });
+        const book = await Book.findById(req.params.id);
+        if (!book) {
+            return next({ status: 404, message: "ספר לא נמצא" });
+        }
+
+        const user = db.users.find(u => u.code === userCode);
+        if (!user) {
+            return next({ status: 404, message: "משתמש לא נמצא" });
+        }
+
+        if (book.is_borrowed) {
+            return next({ status: 400, message: "הספר כבר מושאל, לא ניתן לבצע השאלה" });
+        }
+
+        book.is_borrowed = true;
+        book.borrowing_info.push({ borrow_date: req.currentDate, customer_code: userCode });
+        await book.save();
+
+        user.borrowed_books.push(book._id.toString());
+
+        res.json({ book, user });
+    } catch (err) {
+        next({ status: 400, message: err.message });
     }
-
-    const user = db.users.find(u => u.code === userCode);
-    if (!user) {
-        return next({ status: 404, message: "משתמש לא נמצא" });
-    }
-
-    if (book.is_borrowed) {
-        return next({ status: 400, message: "הספר כבר מושאל, לא ניתן לבצע השאלה" });
-    }
-
-    book.is_borrowed = true;
-    book.borrowing_info.push({
-        borrow_date: new Date().toLocaleDateString(),
-        customer_code: userCode
-    });
-
-    user.borrowed_books.push(book.code);
-
-    res.json({ book, user });
 };
 
-const returnBook = (req, res, next) => {
-    const code = parseInt(req.params.code);
+const returnBook = async (req, res, next) => {
+    try {
+        const book = await Book.findById(req.params.id);
+        if (!book) {
+            return next({ status: 404, message: "ספר לא נמצא" });
+        }
 
-    const book = db.books.find(b => b.code === code);
-    if (!book) {
-        return next({ status: 404, message: "ספר לא נמצא" });
+        if (!book.is_borrowed) {
+            return next({ status: 400, message: "הספר אינו מושאל" });
+        }
+
+        book.is_borrowed = false;
+        await book.save();
+
+        const id = book._id.toString();
+        const user = db.users.find(u => u.borrowed_books.includes(id));
+        if (user) {
+            user.borrowed_books = user.borrowed_books.filter(c => c !== id);
+        }
+
+        res.json({ book, user });
+    } catch (err) {
+        next({ status: 400, message: err.message });
     }
-
-    if (!book.is_borrowed) {
-        return next({ status: 400, message: "הספר אינו מושאל" });
-    }
-
-    book.is_borrowed = false;
-
-    const user = db.users.find(u => u.borrowed_books.includes(code));
-    if (user) {
-        user.borrowed_books = user.borrowed_books.filter(c => c !== code);
-    }
-
-    res.json({ book, user });
 };
 
-const deleteBook = (req, res, next) => {
-    const code = parseInt(req.params.code);
-    const bookIndex = db.books.findIndex(b => b.code === code);
-
-    if (bookIndex === -1) {
-        return next({ status: 404, message: "ספר לא נמצא" });
+const deleteBook = async (req, res, next) => {
+    try {
+        const book = await Book.findByIdAndDelete(req.params.id);
+        if (!book) {
+            return next({ status: 404, message: "ספר לא נמצא" });
+        }
+        res.json({ message: "הספר נמחק בהצלחה" });
+    } catch (err) {
+        next({ status: 400, message: err.message });
     }
-
-    db.books.splice(bookIndex, 1);
-
-    res.json({ message: "הספר נמחק בהצלחה" });
 };
 
-module.exports = { getAllBooks, getBookByCode, updateBook, borrowBook, returnBook, deleteBook };
+const addBook = async (req, res, next) => {
+    try {
+        const book = await Book.create(req.body);
+        res.status(201).json(book);
+    } catch (err) {
+        next({ status: 400, message: err.message });
+    }
+};
+
+module.exports = { getAllBooks, getBookById, updateBook, borrowBook, returnBook, deleteBook, addBook };

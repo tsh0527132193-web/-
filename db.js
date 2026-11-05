@@ -1,20 +1,3 @@
-const books = [
-    {
-        code: 101,
-        name: "שם הספר לדוגמה",
-        category: "קודש / היסטוריה",
-        price: 85,
-        is_borrowed: false,
-        questions: [],
-        borrowing_info: [
-            {
-                borrow_date: "2026-10-08",
-                customer_code: 555
-            }
-        ]
-    }
-];
-
 const users = [
     {
         code: 555,
@@ -25,4 +8,4 @@ const users = [
     }
 ];
 
-module.exports = { books, users };
+module.exports = { users };

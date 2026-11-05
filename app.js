@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
@@ -8,8 +9,10 @@ const bookRouter = require('./routes/book.route');
 const userRouter = require('./routes/user.route');
 const notFound = require('./middlewares/notFound.middleware.js');
 const errorHandler = require('./middlewares/errorHandler.middleware.js');
+const connectDB = require('./config/db');
 
 const app = express();
+connectDB();
 app.use(cors());
 app.use(express.json());
 app.use(addCurrentDate);
