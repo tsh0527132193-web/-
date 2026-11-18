@@ -1,37 +1,51 @@
-const db = require('../db');
+const User = require('../models/user.model');
 
-const signUp = (req, res, next) => {
-    const { username, email, password } = req.body;
+const signUp = async (req, res, next) => {
+    try {
+        const { username, email, password } = req.body;
 
-    if (!username || !email || !password) {
-        return next({ status: 400, message: "חובה למלא שם משתמש, אימייל וסיסמה" });
+        if (!username || !email || !password) {
+            return next({ status: 400, message: "חובה למלא שם משתמש, אימייל וסיסמה" });
+        }
+
+        const exists = await User.findOne({ email });
+        if (exists) {
+            return next({ status: 409, message: "משתמש עם אימייל זה כבר קיים" });
+        }
+
+        const newUser = await User.create({ username, email, password });
+        res.status(201).json(newUser);
+    } catch (err) {
+        next({ status: 400, message: err.message });
     }
-
-    if (db.users.some(u => u.email === email)) {
-        return next({ status: 409, message: "משתמש עם אימייל זה כבר קיים" });
-    }
-
-    const code = db.users.length ? Math.max(...db.users.map(u => u.code)) + 1 : 1;
-    const newUser = { code, username, email, password, borrowed_books: [] };
-    db.users.push(newUser);
-
-    res.status(201).json(newUser);
 };
 
-const signIn = (req, res, next) => {
-    const { email, password } = req.body;
+const signIn = async (req, res, next) => {
+    try {
+        const { email, password } = req.body;
 
-    const user = db.users.find(u => u.email === email && u.password === password);
+        if (!email || !password) {
+            return next({ status: 400, message: "חובה למלא אימייל וסיסמה" });
+        }
 
-    if (!user) {
-        return next({ status: 401, message: "אימייל או סיסמה שגויים" });
+        const user = await User.login(email, password);
+        if (!user) {
+            return next({ status: 401, message: "אימייל או סיסמה שגויים" });
+        }
+
+        res.json(user);
+    } catch (err) {
+        next({ status: 500, message: err.message });
     }
-
-    res.json(user);
 };
 
-const getAllUsers = (req, res, next) => {
-    res.json(db.users);
+const getAllUsers = async (req, res, next) => {
+    try {
+        const users = await User.find();
+        res.json(users);
+    } catch (err) {
+        next({ status: 500, message: err.message });
+    }
 };
 
 module.exports = { signUp, signIn, getAllUsers };
