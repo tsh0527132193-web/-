@@ -12,7 +12,7 @@ const bookSchema = new Schema({
     is_borrowed: { type: Boolean, default: false },
     borrowing_info: [{
         borrow_date: { type: Date },
-        customer_code: { type: Number }
+        customer_code: { type: String }
     }]
 });
 

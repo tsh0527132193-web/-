@@ -1,12 +1,11 @@
 const Book = require('../models/book.model');
-const db = require('../db');
+const User = require('../models/user.model');
 
 const getAllBooks = async (req, res, next) => {
     try {
         let { limit = 10, page = 1, name } = req.query;
         limit = parseInt(limit);
         page = parseInt(page);
-
         const filter = name ? { name: { $regex: name } } : {};
         const books = await Book.find(filter).skip((page - 1) * limit).limit(limit);
 
@@ -50,12 +49,16 @@ const borrowBook = async (req, res, next) => {
     try {
         const { userCode } = req.body;
 
+        if (req.user.role !== 'admin' && req.user.id !== userCode) {
+            return next({ status: 403, message: "ניתן להשאיל ספר רק לעצמך" });
+        }
+
         const book = await Book.findById(req.params.id);
         if (!book) {
             return next({ status: 404, message: "ספר לא נמצא" });
         }
 
-        const user = db.users.find(u => u.code === userCode);
+        const user = await User.findById(userCode);
         if (!user) {
             return next({ status: 404, message: "משתמש לא נמצא" });
         }
@@ -69,12 +72,14 @@ const borrowBook = async (req, res, next) => {
         await book.save();
 
         user.borrowed_books.push(book._id.toString());
+        await user.save();
 
         res.json({ book, user });
     } catch (err) {
         next({ status: 400, message: err.message });
     }
 };
+
 
 const returnBook = async (req, res, next) => {
     try {
@@ -91,9 +96,10 @@ const returnBook = async (req, res, next) => {
         await book.save();
 
         const id = book._id.toString();
-        const user = db.users.find(u => u.borrowed_books.includes(id));
+        const user = await User.findOne({ borrowed_books: id });
         if (user) {
             user.borrowed_books = user.borrowed_books.filter(c => c !== id);
+            await user.save();
         }
 
         res.json({ book, user });
